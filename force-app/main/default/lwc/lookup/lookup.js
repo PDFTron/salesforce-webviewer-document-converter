@@ -228,7 +228,6 @@ export default class Lookup extends NavigationMixin(LightningElement) {
 
     handleResultClick(event) {
         const recordId = event.currentTarget.dataset.recordid;
-
         // Save selection
         const selectedItem = this._searchResults.find((result) => result.id === recordId);
         if (!selectedItem) {
@@ -286,6 +285,7 @@ export default class Lookup extends NavigationMixin(LightningElement) {
         this._curSelection = [];
         this._hasFocus = false;
         // Process selection update
+        this.dispatchEvent(new CustomEvent('clearselection'));
         this.processSelectionUpdate(true);
     }
 
