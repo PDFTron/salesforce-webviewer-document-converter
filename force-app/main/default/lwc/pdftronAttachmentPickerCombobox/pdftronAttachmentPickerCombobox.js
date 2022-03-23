@@ -21,7 +21,14 @@ export default class PdftronAttachmentPickerCombobox extends LightningElement {
   @track attachments = []
   @wire(CurrentPageReference) pageRef
 
+  hasRecord;
+
   renderedCallback () {
+    this.hasRecord = this.recordId ? true : false;
+    if(!this.recordId) {
+      this.loadFinished = true;
+      return
+    }
     if (!this.documentsRetrieved) {
       getAttachments({ recordId: this.recordId })
         .then(data => {
@@ -60,9 +67,9 @@ export default class PdftronAttachmentPickerCombobox extends LightningElement {
 
   initLookupDefaultResults () {
     // Make sure that the lookup is present and if so, set its default results
-    const lookup = this.template.querySelector('c-lookup')
+    const lookup = this.template.querySelector('c-lookup');
     if (lookup) {
-      lookup.setDefaultResults(this.attachments)
+      lookup.setDefaultResults(JSON.parse(JSON.stringify(this.attachments)));
     }
   }
 
@@ -120,6 +127,11 @@ export default class PdftronAttachmentPickerCombobox extends LightningElement {
       })
   }
 
+  handleClearSelection () {
+    // clear exported options
+    fireEvent(this.pageRef, 'clearSelected');
+  }
+
   //check for errors on selection
   checkForErrors () {
     this.errors = []
@@ -143,28 +155,57 @@ export default class PdftronAttachmentPickerCombobox extends LightningElement {
       'success'
     )
     this.refreshOnSave()
-}
+  }
 
   refreshOnSave () {
-    this.loadFinished = false
-    getAttachments({ recordId: this.recordId })
+    this.isLoaded = false;
+    this.attachments = [];
+    if(this.recordId){
+      getAttachments({ recordId: this.recordId })
       .then(data => {
         this.attachments = data
-        this.initLookupDefaultResults()
+        this.initLookupDefaultResults(data)
+
+        if(data[0]) {
+          const lookup = this.template.querySelector('c-lookup');
+          lookup.selection = data[0]
+
+          getFileDataFromId({ Id: data[0].id })
+            .then(result => {
+              fireEvent(this.pageRef, 'blobSelected', result)
+            })
+            .catch(error => {
+              this.isLoaded = true
+
+            // TODO: handle error
+            this.errors.push({
+              message: error.body.message
+            })
+            console.error(error)
+
+            let def_message =
+              'Oops, we hit a snag. '
+
+            this.showNotification(
+              def_message,
+              error.body.message,
+              'error'
+            )
+            //lookup.selection = undefined
+          })
+        }
 
         this.error = undefined
-        this.loadFinished = true
         this.documentsRetrieved = true
       })
       .catch(error => {
         console.error(error)
         this.showNotification('Error', error, 'error')
         this.error = error
+        this.isLoaded = true
       })
-  }
-
-  handleDownload () {
-    fireEvent(this.pageRef, 'downloadDocument', '*')
+    }
+    
   }
 
   handleClose () {
