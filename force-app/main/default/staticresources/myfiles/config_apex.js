@@ -112,7 +112,6 @@ function transportDocument(payload, transport){
 async function toPdf (payload, transport) {
   if (transport){
 
-      await PDFNet.initialize();
       const doc = instance.Core.documentViewer.getDocument();
       const buffer = await doc.getFileData({ downloadType: payload.exportType });
       const bufferFile = new Uint8Array(buffer);
