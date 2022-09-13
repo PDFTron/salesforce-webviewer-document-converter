@@ -116,7 +116,7 @@ export default class PdftronWvInstance extends LightningElement {
       libUrl: libUrl,
       myfilesUrl,
       fullAPI: this.fullAPI || false,
-      namespacePrefix: 'PDFtron_WvDC_',
+      namespacePrefix: '',
       username: this.username,
     };
     var url = myfilesUrl + '/webviewer-demo-annotated.pdf';
