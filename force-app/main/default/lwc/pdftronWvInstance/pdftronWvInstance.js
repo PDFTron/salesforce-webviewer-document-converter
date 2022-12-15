@@ -8,6 +8,7 @@ import mimeTypes from './mimeTypes'
 import { fireEvent, registerListener, unregisterAllListeners } from 'c/pubsub';
 import saveDocument from '@salesforce/apex/PDFTron_ContentVersionController.saveDocument';
 import getUser from '@salesforce/apex/PDFTron_ContentVersionController.getUser';
+import getPdftronSettings from '@salesforce/apex/PDFTron_ContentVersionController.getPdftronSettings';
 
 function _base64ToArrayBuffer(base64) {
   var binary_string =  window.atob(base64);
@@ -107,10 +108,10 @@ export default class PdftronWvInstance extends LightningElement {
   }
 
   async initUI() {
-    // const customMetadataRecords = await getPdftronSettings();
-    // const record = customMetadataRecords[0];
-    // console.log(record);
-    // const l = record ? window.atob(record[`PDFtron_WVDC__Permission_Level__c`]) : undefined;
+    const customMetadataRecords = await getPdftronSettings();
+    const record = customMetadataRecords[0];
+    console.log(record);
+    const l = record ? window.atob(record[`Permission_Level__c`]) : undefined;
 
     var myObj = {
       libUrl: libUrl,
@@ -149,7 +150,7 @@ export default class PdftronWvInstance extends LightningElement {
           const cvId = event.data.payload.contentDocumentId;
           saveDocument({ json: JSON.stringify(event.data.payload), recordId: this.recordId ? this.recordId : '', cvId: cvId })
           .then((response) => {
-            me.iframeWindow.postMessage({ type: 'DOCUMENT_SAVED', response }, '*');
+            me.iframeWindow.postMessage({ type: 'DOCUMENT_SAVED', response }, window.origin);
             
             fireEvent(this.pageRef, 'refreshOnSave', response);
 
@@ -157,7 +158,7 @@ export default class PdftronWvInstance extends LightningElement {
             this.showNotification('Success', event.data.payload.filename + ' Saved', 'success');
           })
           .catch(error => {
-            me.iframeWindow.postMessage({ type: 'DOCUMENT_SAVED', error }, '*')
+            me.iframeWindow.postMessage({ type: 'DOCUMENT_SAVED', error }, window.origin)
             fireEvent(this.pageRef, 'refreshOnSave', error);
             console.error(event.data.payload.contentDocumentId);
             console.error(JSON.stringify(error));
@@ -179,7 +180,7 @@ export default class PdftronWvInstance extends LightningElement {
 
   @api
   closeDocument() {
-    this.iframeWindow.postMessage({type: 'CLOSE_DOCUMENT' }, '*')
+    this.iframeWindow.postMessage({type: 'CLOSE_DOCUMENT' }, window.origin)
   }
 
   transportDocument(convert) {
@@ -191,9 +192,9 @@ export default class PdftronWvInstance extends LightningElement {
 
       if(convert.conform){
         payload.conformType = convert.conform;
-        this.iframeWindow.postMessage({type: convert.transport, payload }, '*');
+        this.iframeWindow.postMessage({type: convert.transport, payload }, window.origin);
       } else {
-        this.iframeWindow.postMessage({type: convert.transport, payload }, '*');
+        this.iframeWindow.postMessage({type: convert.transport, payload }, window.origin);
       }
       
     } else {
