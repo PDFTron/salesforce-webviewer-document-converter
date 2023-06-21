@@ -15,13 +15,32 @@ export default class ExportFile extends LightningElement {
     file_options;
     value;
 
+    pdfaValue = 'e_Level1A';
+    pdfaSelect = false;
 
     payload;
 
+    pdfa_conformance = [
+        {label: 'PDF/A-1A', value: 'e_Level1A'},
+        {label: 'PDF/A-1B', value: 'e_Level1B'},
+        {label: 'PDF/A-2A', value: 'e_Level2A'},
+        {label: 'PDF/A-2B', value: 'e_Level2B'},
+        {label: 'PDF/A-2U', value: 'e_Level2U'},
+        {label: 'PDF/A-3A', value: 'e_Level3A'},
+        {label: 'PDF/A-3B', value: 'e_Level3B'},
+        {label: 'PDF/A-3U', value: 'e_Level3U'}
+    ]
     
     pdf_options = [
         { label: 'JPG', value: 'jpg' },
         { label: 'PNG', value: 'png' },
+        { label: 'PDF/A', value: 'pdfa' },
+        { label: 'TIFF', value: 'tiff' }
+        // { label: 'Word', value: 'docx' },
+        // { label: 'PowerPoint', value: 'pptx' },
+        // { label: 'Excel', value: 'xlsx' },
+        // { label: 'HTML', value: 'html' }
+        
     ]
 
     other_options = [
@@ -77,12 +96,23 @@ export default class ExportFile extends LightningElement {
     handleChange(event){
         const label = event.target.options.find(opt => opt.value === event.detail.value).label;
         this.value = event.detail.value;
-        
-        this.pdfaSelect = false;
-        this.payload = {
-            value: event.detail.value
+        if (label == 'PDF/A'){
+            this.pdfaSelect = true;
+            this.payload = {
+                value: event.detail.value,
+                conform: this.pdfaValue
+            }
+        } else {
+            this.pdfaSelect = false;
+            this.payload = {
+                value: event.detail.value
+            }
         }
-        
+    }
+
+    handleChangePDFA(event){
+        this.pdfaValue = event.detail.value;
+        this.payload.conform = this.pdfaValue;
     }
 
     handleFinishConvert(){

@@ -15,6 +15,13 @@
                     options={file_options}
                     onchange={handleChange}></lightning-combobox>  
             </div>
+            <div class="slds-col slds-p-around_xx-small" if:true={pdfaSelect}>
+                <lightning-combobox
+                    name="pdfaComboBox"
+                    value={pdfaValue}
+                    options={pdfa_conformance}
+                    onchange={handleChangePDFA}></lightning-combobox>
+            </div>
             <div class="slds-col slds-grow-none slds-p-around_xx-small">
                 <lightning-button-group class="slds-show_x-large">
                     <lightning-button label="Export" onclick={handleExport}></lightning-button> 

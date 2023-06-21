@@ -18,6 +18,12 @@ public with sharing class PDFTron_ContentVersionController {
         'xlsx'
     };
 
+    @AuraEnabled(Cacheable=true)
+    public static PDFTron_Setting__mdt[] getPdftronSettings() {
+        PDFTron_Setting__mdt[] mdtMap = [SELECT MasterLabel, DeveloperName, Permission_Level__c, NamespacePrefix, QualifiedAPIName FROM PDFTron_Setting__mdt LIMIT 1];
+        return mdtMap;
+    }
+
     @AuraEnabled
     public static string getUser() {
         try {
@@ -87,6 +93,19 @@ public with sharing class PDFTron_ContentVersionController {
             List<String> cdIdList = new List<String> ();
             List<ContentVersionWrapper> cvwList = new List<ContentVersionWrapper> ();
 
+            if (String.isBlank(recordId)) {
+                for (ContentVersion cv : [
+                    SELECT Id, Title, FileExtension, VersionData, ContentDocumentId
+                    FROM ContentVersion
+                    WHERE IsLatest = TRUE
+                ]) {
+                    if (checkFileExtension(cv.FileExtension)) {
+                        cvwList.add(new ContentVersionWrapper(cv, false));
+                    }
+                }
+                return cvwList;
+            }
+
             //Find links between record & document
             for(ContentDocumentLink cdl : 
                     [   SELECT id, ContentDocumentId, ContentDocument.LatestPublishedVersionId 
@@ -99,7 +118,7 @@ public with sharing class PDFTron_ContentVersionController {
                     [   SELECT Id, Title,FileExtension, VersionData, ContentDocumentId 
                         FROM ContentVersion 
                         WHERE ContentDocumentId IN :cdIdList 
-                        AND IsLatest = true ]) {
+                        AND IsLatest = TRUE ]) {
                 if(checkFileExtension(cv.FileExtension)) {
                     cvwList.add(new ContentVersionWrapper(cv, false));
                 }

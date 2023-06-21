@@ -3,7 +3,7 @@ window.CoreControls.forceBackendType('ems');
 
 var urlSearch = new URLSearchParams(location.hash)
 var custom = JSON.parse(urlSearch.get('custom'));
-resourceURL = resourceURL + custom.namespacePrefix + "_";
+resourceURL = resourceURL + custom.namespacePrefix;
 
 
 /**
@@ -58,9 +58,25 @@ window.addEventListener('viewerLoaded', async function () {
 
 window.addEventListener("message", receiveMessage, false);
 
+async function loadTIFF(payload){
+  var blob = payload.blob;
+  
+  await PDFNet.runWithoutCleanup(async () => {
+    var newDoc = await PDFNet.PDFDoc.create();
+    newDoc.initSecurityHandler();
+    newDoc.lock();
+
+    let bufferTiff = await blob.arrayBuffer();
+    const tiffFile = await PDFNet.Filter.createFromMemory(bufferTiff);
+    await PDFNet.Convert.fromTiff(newDoc, tiffFile);
+    const buffer = await newDoc.saveMemoryBuffer(PDFNet.SDFDoc.SaveOptions.e_linearized);
+    newDoc.unlock();
+    instance.loadDocument(newDoc);
+  });
+}
 
 function receiveMessage(event) {
-  if (event.isTrusted && typeof event.data === 'object') {
+  if (event.origin === window.origin && event.isTrusted && typeof event.data === 'object') {
     switch (event.data.type) {
       case 'OPEN_DOCUMENT':
         console.log(event.data.file);
@@ -88,6 +104,9 @@ function receiveMessage(event) {
       case 'DOWNLOAD_DOCUMENT':
         transportDocument(event.data.payload, false)
         break;
+      case 'OPEN_TIFF_BLOB':
+        loadTIFF(event.data.payload)
+        break;
       default:
         break;
     }
@@ -101,6 +120,15 @@ function transportDocument(payload, transport){
       // PDF to Image (png, jpg)
       pdfToImage(payload, transport);
       break;
+    case 'pdfa':
+      // PDF to PDFA
+      pdfToPdfA(payload, transport);
+      break;
+    // case 'docx':
+    //   pdfToDocx(payload, transport);
+    case 'tiff':
+      pdfToTiff(payload, transport);
+      break;
     case 'pdf':
       // DOC, Images to PDF
       toPdf(payload, transport);
@@ -112,6 +140,7 @@ function transportDocument(payload, transport){
 async function toPdf (payload, transport) {
   if (transport){
 
+      await PDFNet.initialize();
       const doc = instance.Core.documentViewer.getDocument();
       const buffer = await doc.getFileData({ downloadType: payload.exportType });
       const bufferFile = new Uint8Array(buffer);
@@ -121,12 +150,29 @@ async function toPdf (payload, transport) {
   } else {
     let file = payload.file;
 
-    parent.postMessage({ type: 'DOWNLOAD_DOCUMENT', file }, '*');
+    parent.postMessage({ type: 'DOWNLOAD_DOCUMENT', file }, window.origin);
     instance.downloadPdf({filename: payload.file});
 
   }
 }
 
+const pdfToTiff = async (payload, transport) => {
+
+  let blob = payload.blob;
+
+  if (!blob) {
+      return;
+  }
+  await PDFNet.initialize();
+
+  await PDFNet.runWithoutCleanup(async () => {
+
+      let bufferTiff = await blob.arrayBuffer();
+      let tiff = await PDFNet.Convert.fileToTiffWithBuffer(bufferTiff, 'pdf');
+      transport ? saveFile(tiff, payload.file, "." + payload.exportType) : downloadFile(tiff, payload.file, "." + payload.exportType);
+      
+  });
+}
 
 
 const pdfToImage = async (payload, transport) => {
@@ -164,6 +210,50 @@ const pdfToImage = async (payload, transport) => {
 }
 
 
+// Converts a PDF to PDFA
+const pdfToPdfA = async (payload, transport) => {
+  // Initialize PDFNet in the config_apex.js
+  await PDFNet.initialize();
+  let convert = true;
+  let conform = pdfaConformance[payload.conformType];
+
+
+  await PDFNet.runWithCleanup(async () => {
+
+    const buffer = await payload.blob.arrayBuffer();
+    const pdfa = await PDFNet.PDFACompliance.createFromBuffer(convert, buffer, "", conform);
+
+    const linearize = true;
+    const bufferFile = await pdfa.saveAsFromBuffer(linearize);
+    transport ? saveFile(bufferFile, payload.file,  '.pdf') : downloadFile(bufferFile, payload.file,  '.pdf');
+
+  });
+}
+
+
+const pdfToDocx = async (payload, transport) => {
+
+  // await PDFNet.initialize();
+  // const doc = instance.Core.documentViewer.getDocument();
+  // const buffer = await doc.getFileData({downloadType: 'docx'});
+  // const bufferFile = new Uint8Array(buffer);
+
+  // transport ? saveFile(bufferFile, payload.file,  "." + payload.exportType) : downloadFile(bufferFile, payload.file,  "." + payload.exportType);
+
+}
+
+const pdfaConformance = {
+  e_Level1A: 1,
+  e_Level1B: 2,
+  e_Level2A: 3,
+  e_Level2B: 4,
+  e_Level2U: 5,
+  e_Level3A: 6,
+  e_Level3B: 7,
+  e_Level3U: 8
+}
+
+
 
 
 
@@ -187,7 +277,7 @@ const downloadFile = (buffer, fileName, fileExtension) => {
   link.remove();
 
 
-  parent.postMessage({ type: 'DOWNLOAD_DOCUMENT', file }, '*')
+  parent.postMessage({ type: 'DOWNLOAD_DOCUMENT', file }, window.origin)
   // in case the Blob uses a lot of memory
   setTimeout(() => URL.revokeObjectURL(link.href), 7000);
   
@@ -212,6 +302,6 @@ function saveFile (buffer, fileName, fileExtension) {
   }
   console.log(payload);
   // Post message to LWC
-  fileSize < docLimit ? parent.postMessage({ type: 'SAVE_DOCUMENT', payload }, '*') : downloadFile(buffer, fileName, "." + fileExtension);
+  fileSize < docLimit ? parent.postMessage({ type: 'SAVE_DOCUMENT', payload }, window.origin) : downloadFile(buffer, fileName, "." + fileExtension);
 }
 
